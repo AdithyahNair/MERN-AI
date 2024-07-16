@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema(
       type: Date,
     },
 
-    subscription: {
+    subscriptionPlan: {
       type: String,
       enum: ["Trial", "Free", "Basic", "Premium"],
     },
