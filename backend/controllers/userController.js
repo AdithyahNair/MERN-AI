@@ -18,7 +18,7 @@ const userController = {
       throw new Error("User already exists. Please login!");
     }
     //! Hash the password
-    const salt = await bcrypt.genSalt(process.env.SALT_VALUE);
+    const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     //! Create new user
@@ -92,8 +92,7 @@ const userController = {
   }),
 
   userProfile: asyncHandler(async (req, res) => {
-    const id = req.user;
-    const user = await User.findById(id).select("-password");
+    const user = await User.findById(req?.user?.id).select("-password");
     if (user) {
       res.status(200).json({
         message: "success",

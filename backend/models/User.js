@@ -43,7 +43,7 @@ const userSchema = new mongoose.Schema(
 
     monthlyRequestCount: {
       type: Number,
-      default: 0,
+      default: 100, //* 100 free credits for a month. 3 days available for use
     },
 
     nextBillingDate: Date,
@@ -62,8 +62,16 @@ const userSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
+
+//* Add virtual property
+
+userSchema.virtual("isTrialActive").get(function () {
+  return this.trialActive && new Date() < this.trialExpires;
+});
 
 const User = mongoose.model("User", userSchema);
 
