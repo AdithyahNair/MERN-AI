@@ -1,5 +1,10 @@
 const asyncHandler = require("express-async-handler");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const {
+  calculateNextBillingDate,
+  shouldRenewSubscriptionPlan,
+} = require("../utils/billingCalculations");
+const Payment = require("../models/Payment");
 
 //* Stripe Payment
 
@@ -9,7 +14,6 @@ const handleStripPayment = asyncHandler(async (req, res) => {
   //* get user
 
   const user = req?.user;
-  console.log(user);
   try {
     // Create a PaymentIntent with the order amount and currency
     const paymentIntent = await stripe.paymentIntents.create({
@@ -26,8 +30,6 @@ const handleStripPayment = asyncHandler(async (req, res) => {
       },
     });
 
-    console.log(paymentIntent);
-
     res.send({
       clientSecret: paymentIntent?.client_secret,
       paymentId: paymentIntent?.id,
@@ -41,4 +43,46 @@ const handleStripPayment = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = handleStripPayment;
+//* Handle free subscription
+
+const handleFreeSubscription = asyncHandler(async (req, res) => {
+  const user = req?.user;
+
+  try {
+    if (shouldRenewSubscriptionPlan(user)) {
+      //* Update user
+
+      (user.subscriptionPlan = "Free"), (user.monthlyRequestCount = 5);
+      user.apiRequestCount = 0;
+      //* Calculate next Billing Date
+      user.nextBillingDate = calculateNextBillingDate();
+
+      //* Create new payment
+
+      const payment = await Payment.create({
+        user: user?._id,
+        subscription: "Free",
+        status: "success",
+        amount: 0,
+        reference: Math.random().toString(36).substring(7),
+        monthlyRequestCount: 5,
+        currency: "usd",
+      });
+
+      user.payments.push(payment?._id);
+      await user.save();
+      return res.status(200).json({
+        message: "Subscription Plan Updated Successfully!",
+      });
+    } else {
+      return res.status(403).json({
+        error: "Subscription Renewal Not Due Yet",
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+});
+module.exports = { handleStripPayment, handleFreeSubscription };
