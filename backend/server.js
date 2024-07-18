@@ -1,6 +1,7 @@
 const express = require("express");
 const userRouter = require("./routes/userRouter");
 const cookieParser = require("cookie-parser");
+var cron = require("node-cron");
 require("dotenv").config();
 const errorHandler = require("./middlewares/errorMiddleware");
 const geminiAIRouter = require("./routes/geminiAIRouter");
@@ -8,6 +9,10 @@ const stripeRouter = require("./routes/stripeRouter");
 require("./utils/connectDB")();
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+cron.schedule("* * * * * *", () => {
+  console.log("This task runs every second");
+});
 
 //! Middlewares
 
