@@ -5,6 +5,7 @@ const {
   shouldRenewSubscriptionPlan,
 } = require("../utils/billingCalculations");
 const Payment = require("../models/Payment");
+const User = require("../models/User");
 
 //* Stripe Payment
 
@@ -85,4 +86,86 @@ const handleFreeSubscription = asyncHandler(async (req, res) => {
     });
   }
 });
-module.exports = { handleStripPayment, handleFreeSubscription };
+
+//* Verify Payment
+
+const verifyPayment = asyncHandler(async (req, res) => {
+  const { paymentId } = req.params;
+  try {
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentId);
+    console.log(paymentIntent);
+
+    if (paymentIntent.status !== "succeeded") {
+      const metadata = paymentIntent.metadata;
+      const { userId, userEmail, subscriptionPlan } = metadata;
+
+      const userFound = await User.findById(userId);
+
+      if (!userFound) {
+        return res.status(404).json({
+          message: "user not found!",
+        });
+      }
+
+      //* get the payment details
+      const amount = paymentIntent.amount / 100;
+      const currency = paymentIntent.currency;
+      const paymentId = paymentIntent.id;
+
+      //* Create payment model
+
+      const newPayment = await Payment.create({
+        user: userId,
+        email: userEmail,
+        subscription: subscriptionPlan,
+        amount,
+        currency,
+        status: "success",
+        reference: paymentId,
+      });
+
+      if (subscriptionPlan === "Basic") {
+        //* Update user
+
+        const updatedUser = await User.findByIdAndUpdate(userId, {
+          subscriptionPlan: "Basic",
+          apiRequestCount: 0,
+          monthlyRequestCount: 50,
+          nextBillingDate: calculateNextBillingDate(),
+          trialPeriod: 0,
+          $addToSet: { payments: newPayment._id },
+        });
+
+        await updatedUser.save();
+
+        res.status(200).json({
+          message: "Payment verified, user updated to Basic Plan",
+          updatedUser,
+        });
+      }
+
+      if (subscriptionPlan === "Premium") {
+        //* Update user
+
+        const updatedUser = await User.findByIdAndUpdate(userId, {
+          subscriptionPlan: "Premium",
+          apiRequestCount: 0,
+          monthlyRequestCount: 100,
+          nextBillingDate: calculateNextBillingDate(),
+          trialPeriod: 0,
+          $addToSet: { payments: newPayment._id },
+        });
+
+        res.status(200).json({
+          message: "Payment verified, user updated to Premium Plan",
+          updatedUser,
+        });
+      }
+    }
+  } catch (error) {
+    res.status(500).json({
+      error,
+    });
+  }
+});
+module.exports = { handleStripPayment, handleFreeSubscription, verifyPayment };
