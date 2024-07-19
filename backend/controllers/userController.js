@@ -92,7 +92,10 @@ const userController = {
   }),
 
   userProfile: asyncHandler(async (req, res) => {
-    const user = await User.findById(req?.user?.id).select("-password");
+    const user = await User.findById(req?.user?.id)
+      .select("-password")
+      .populate("payments")
+      .populate("history");
     if (user) {
       res.status(200).json({
         message: "success",

@@ -134,7 +134,7 @@ const verifyPayment = asyncHandler(async (req, res) => {
           nextBillingDate: calculateNextBillingDate(),
           trialPeriod: 0,
           $addToSet: { payments: newPayment._id },
-        });
+        }).select("-password");
 
         await updatedUser.save();
 
@@ -154,7 +154,7 @@ const verifyPayment = asyncHandler(async (req, res) => {
           nextBillingDate: calculateNextBillingDate(),
           trialPeriod: 0,
           $addToSet: { payments: newPayment._id },
-        });
+        }).select("-password");
 
         res.status(200).json({
           message: "Payment verified, user updated to Premium Plan",
